@@ -52,3 +52,14 @@ cafeteria, unlike a phone photo at home, so the own-meals test remains the bette
 
 Results are written to `evaluation/results/<manifest name>.json`. Record the headline numbers in the
 main README once you have run a set.
+
+## Acceptance decision
+
+```
+python evaluation/acceptance.py evaluation/results/my_meals.json
+```
+
+The check compares a run with criteria agreed before testing: at least 20 meals scored, median calorie
+error at most 20%, and at least half of meals within 20% (blocking); bias within ±10% and at most 10%
+skipped (reported). It decides ACCEPT, REJECT or NOT READY for each portion mode, and never accepts
+hybrid mode on Nutrition5k. See the [vendor evaluation playbook](../docs/vendor-evaluation-playbook.md).

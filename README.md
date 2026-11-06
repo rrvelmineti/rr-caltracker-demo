@@ -4,7 +4,19 @@
 
 A Streamlit food-photo app that estimates portions, matches foods to USDA data, and tracks calories, macros, vitamins and minerals. Gemini analyses the photos in this version.
 
-Docs: [problem statement](docs/problem-statement.md) · [user stories](docs/user-stories.md) · [accuracy evaluation](evaluation/README.md)
+Docs: [vendor evaluation playbook](docs/vendor-evaluation-playbook.md) · [problem statement](docs/problem-statement.md) · [user stories](docs/user-stories.md) · [accuracy evaluation](evaluation/README.md)
+
+## The implementation case: is the AI accurate enough to roll out?
+
+**Client question.** A wellness provider wants photo meal logging in its employee app. Is it accurate
+enough to trust?
+**Approach.** Agree the acceptance criteria first: at least 20 meals, median calorie error at most 20%,
+and at least half of meals within 20%. Then benchmark the app's real pipeline on meals with known
+calories, and decide with code (`evaluation/acceptance.py`).
+**What the review found before any benchmark.** The FoodCNN weight model was trained on the public
+Nutrition5k dishes, so testing it there would overstate its accuracy. The acceptance check refuses to
+accept it on that evidence. The full plan is in the
+[vendor evaluation playbook](docs/vendor-evaluation-playbook.md).
 
 ## What you can do
 
@@ -64,6 +76,15 @@ of meals within 20%, for photo-only portions and for FoodCNN-weighted portions. 
 weighed meals and a reproducible sample of Nutrition5k test dishes. FoodCNN was trained on almost all
 Nutrition5k dishes, so Nutrition5k is used with photo-only portions; your own meals are the fair test
 of the weight model. No accuracy figure is claimed until a run is recorded here.
+
+Then turn a run into a decision against the agreed criteria:
+
+```bash
+python evaluation/acceptance.py evaluation/results/my_meals.json
+```
+
+It writes `evaluation/results/my_meals-acceptance.md`: ACCEPT, REJECT or NOT READY for each portion
+mode, the 5 largest errors to review by hand, and a sign-off line.
 
 ## Portion estimation
 
