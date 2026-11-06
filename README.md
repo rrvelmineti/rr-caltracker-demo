@@ -2,11 +2,13 @@
 
 **Snap your meal. Know your calories.**
 
-A Streamlit food-photo app that estimates portions, matches foods to USDA data, and tracks calories, macros, vitamins and minerals. Groq is the default photo provider; Gemini remains an explicit configuration option.
+A Streamlit food-photo app that estimates portions, matches foods to USDA data, and tracks calories, macros, vitamins and minerals. Gemini analyses the photos in this version.
+
+Docs: [problem statement](docs/problem-statement.md) · [user stories](docs/user-stories.md) · [accuracy evaluation](evaluation/README.md)
 
 ## What you can do
 
-1. Upload up to three views of the same meal with Groq (five with Gemini), or capture photos with the camera. Add food names, preparation or ingredients when known.
+1. Upload up to five views of the same meal, or capture photos with the camera. Add food names, preparation or ingredients when known.
 2. Analyze the meal and review the selected USDA matches and grams. Correct the weight or mark a kitchen-scale weight. Nutrition updates without another photo-analysis call.
 3. Inspect calories, protein, carbs, fat, fiber, 13 vitamins, 11 minerals and choline. Expand **Nutrition for this portion** for each food, or **Vitamins, minerals & fiber** for the meal.
 4. Enable browser history and save the meal. The top daily summary counts saved meals for the browser-local date. It shows macros and selected micronutrients, with a full vitamins/minerals table beneath it.
@@ -38,14 +40,11 @@ python -m streamlit run app.py
 
 The app reads settings from environment variables or Streamlit Secrets. Keep actual key values out of the repository:
 
-- `GROQ_API_KEY`: the current default photo provider's key.
 - `USDA_API_KEY`: FoodData Central key for nutrition lookup.
-- `RR_VISION_PROVIDER`: `groq` by default; set `gemini` to switch explicitly.
-- `GROQ_MODEL`: optional model override; the working deployment's configured default is retained in this release.
-- `GEMINI_API_KEY` and optional `GEMINI_MODEL`: used only when Gemini is selected.
+- `GEMINI_API_KEY` and optional `GEMINI_MODEL`: the photo provider. `app.py` sets `VISION_PROVIDER = "gemini"`; the Groq code path remains in the code but `RR_VISION_PROVIDER` is not read in this version.
 - `RR_PORTION_MODE=visual`: optional original visual-only portion method. Otherwise the existing local whole-dish model is used when available.
 
-A Groq error never silently switches to Gemini. Current Groq diagnostics include a safe `Groq code` without exposing raw provider responses or keys. This micronutrient update does not change the working model or credentials. For another account, verify the configured model against that account's available models.
+A provider error never silently switches to another provider. Diagnostics show a safe error code without exposing raw provider responses or keys. This micronutrient update does not change the working model or credentials. For another account, verify the configured model against that account's available models.
 
 Keep `assets/fonts`, `models`, `requirements.txt` and the Streamlit configuration. This update adds no runtime dependencies. Photo limits remain 10 MB each and 12 MB combined after preparation.
 
@@ -56,6 +55,15 @@ No app account or personal profile is required. Photos and optional descriptions
 History is off until enabled. Only explicitly saved meals are stored in this browser's localStorage, without photos, keys or free-form analysis notes. Choose 1, 7 or 14 days; expiry runs while the app is open or on the next visit. Updating a meal does not reset its retention timestamp. Browser/site-data clearing also removes history. There is no cross-device sync, and anyone using the same browser profile can see it.
 
 Viewing, saving and deleting browser history does not send the diary to Python. An explicit saved-meal PDF request sends only that snapshot to the app temporarily. Downloaded PDFs remain until you remove them. Hosting and provider operational logs are outside this app's diary controls. This update does not change Streamlit sharing settings.
+
+## Accuracy
+
+Calorie accuracy is measured with [`evaluation/meal_benchmark.py`](evaluation/README.md), which runs this
+app's own pipeline on meals whose calories are known and reports median percentage error and the share
+of meals within 20%, for photo-only portions and for FoodCNN-weighted portions. It supports your own
+weighed meals and a reproducible sample of Nutrition5k test dishes. FoodCNN was trained on almost all
+Nutrition5k dishes, so Nutrition5k is used with photo-only portions; your own meals are the fair test
+of the weight model. No accuracy figure is claimed until a run is recorded here.
 
 ## Portion estimation
 
@@ -76,7 +84,7 @@ Browser DOM checks use the development-only `jsdom` package:
 RR_JSDOM_MODULE=/absolute/path/to/jsdom/lib/api.js node --test tests/test_history_dom.mjs
 ```
 
-The Python runner prohibits live network calls; both photo providers use explicit test fixtures. New checks cover micronutrient units, small amounts, missing-vs-zero values, partial coverage, legacy entries, portion corrections and the Groq review/save path. Browser checks cover save, reload, update, deletion, daily boundaries, nutrient-group selection and PDF payloads.
+The Python runner prohibits live network calls; both photo providers use explicit test fixtures. New checks cover micronutrient units, small amounts, missing-vs-zero values, partial coverage, legacy entries, portion corrections and the Groq review/save path (`test_groq_review_portion_change_and_saved_snapshot` fails while `app.py` sets Gemini, because it selects Groq through `RR_VISION_PROVIDER`). The calorie benchmark has its own offline checks in `tests/test_meal_benchmark.py`. Browser checks cover save, reload, update, deletion, daily boundaries, nutrient-group selection and PDF payloads.
 
 ## USDA sources
 
