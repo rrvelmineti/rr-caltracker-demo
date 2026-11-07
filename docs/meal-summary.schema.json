@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/rrvelmineti/rr-caltracker-demo/docs/meal-summary.schema.json",
+  "title": "Daily meal summary batch, version 1.0",
+  "description": "Sent by the meal-logging app to the health plan's wellness platform. One record per member per day. See docs/integration-spec.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "partner", "batch_id", "generated_at", "records"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "partner": {"type": "string", "description": "Sending application"},
+    "batch_id": {"type": "string", "format": "uuid", "description": "Also sent as the Idempotency-Key header"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "records": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["member_ref", "date", "meals_logged", "meal_types", "calories_kcal", "calories_range_kcal",
+                     "protein_g", "carbs_g", "fat_g", "fiber_g", "complete", "estimated", "consent_version",
+                     "idempotency_key"],
+        "properties": {
+          "member_ref": {"type": "string", "pattern": "^[0-9a-f]{64}$",
+                         "description": "HMAC-SHA256 of the member ID under the shared secret. The member ID itself is never sent."},
+          "date": {"type": "string", "format": "date", "description": "The member's local date. No time of day is sent."},
+          "meals_logged": {"type": "integer", "minimum": 1, "maximum": 20},
+          "meal_types": {
+            "type": "object", "additionalProperties": false,
+            "required": ["Breakfast", "Lunch", "Dinner", "Snack"],
+            "properties": {
+              "Breakfast": {"type": "integer", "minimum": 0}, "Lunch": {"type": "integer", "minimum": 0},
+              "Dinner": {"type": "integer", "minimum": 0}, "Snack": {"type": "integer", "minimum": 0}
+            }
+          },
+          "calories_kcal": {"type": ["number", "null"], "minimum": 0, "maximum": 50000,
+                            "description": "Rounded to 10 kcal. Null when any meal that day lacks a calorie value."},
+          "calories_range_kcal": {"type": ["array", "null"], "items": {"type": "number", "minimum": 0},
+                                  "minItems": 2, "maxItems": 2, "description": "Portion-based range [low, high], rounded to 10 kcal."},
+          "protein_g": {"type": ["number", "null"], "minimum": 0, "maximum": 50000},
+          "carbs_g": {"type": ["number", "null"], "minimum": 0, "maximum": 50000},
+          "fat_g": {"type": ["number", "null"], "minimum": 0, "maximum": 50000},
+          "fiber_g": {"type": ["number", "null"], "minimum": 0, "maximum": 50000},
+          "complete": {"type": "boolean", "description": "False if any food that day was unmatched or any macro is missing."},
+          "estimated": {"const": true, "description": "Always an estimate from photos, never a measurement."},
+          "consent_version": {"const": "2026-11"},
+          "idempotency_key": {"type": "string", "pattern": "^[0-9a-f]{64}$",
+                              "description": "SHA-256 of the record's content. The same day with the same content always has the same key."}
+        }
+      }
+    }
+  }
+}

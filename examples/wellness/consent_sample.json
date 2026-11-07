@@ -1,0 +1,11 @@
+{
+  "member_id": "M-1001",
+  "granted": true,
+  "scope": [
+    "daily_nutrition_summary"
+  ],
+  "version": "2026-11",
+  "granted_at": "2026-11-01T09:30:00+00:00",
+  "withdrawn_at": null,
+  "_about": "Synthetic consent record for the sample diary. The insurer's consent service holds the real one."
+}
