@@ -1,25 +1,30 @@
-# Playbook: validating an AI feature before a client rolls it out
+# Playbook: rolling out photo meal logging as a health plan's member wellness benefit
 
-How an implementation consultant would use this app's benchmark to answer one client question: *is
-photo calorie logging accurate enough to give to our users?* The client is a **hypothetical**
-example; the benchmark, datasets and acceptance check are the real ones in this repository.
+How an implementation consultant would take this app to a health insurer's members. That means
+answering three questions in order: *is it accurate enough? Is member data handled lawfully and
+minimally? Does it integrate cleanly with the plan's wellness platform?* The insurer is a
+**hypothetical** client. The benchmark, acceptance check, data flows, export and tests are the real ones
+in this repository.
 
 ## The engagement in one paragraph
 
-A corporate wellness provider wants to add photo meal logging to its employee app. The vendor
-demo looks impressive, but nobody has measured accuracy on real meals, and a feature that is
-confidently wrong would damage trust in the whole app. The job is to agree what "accurate enough"
-means, measure it fairly, and give a clear accept or reject with the evidence behind it.
+A health insurer wants to offer photo meal logging as an optional wellness benefit, with members able
+to share daily nutrition totals with the plan's wellness coaching platform. The demo looks impressive,
+but nobody has measured accuracy on real meals. Health data held by an insurer carries strict privacy
+duties, and a feature that is confidently wrong would damage trust in the whole plan. The job is to
+agree what "accurate enough" means and measure it fairly. Member data must leave the device only with
+consent and only in minimal form, and integration with the plan's platform has to fail safely.
 
 ## Stakeholders
 
 | Who | Role | Responsible for |
 | --- | --- | --- |
-| Product owner (client) | Sponsor | Agrees the acceptance criteria, makes the rollout decision |
-| Registered dietitian (client) | Subject expert | Says what error is acceptable for casual tracking |
-| Privacy / legal (client) | Approver | Photos and food descriptions sent to external AI providers |
-| 10 volunteer employees | Testers | Weigh and photograph their own meals |
-| Implementation consultant (me) | Delivery lead | Criteria, test design, benchmark runs, the recommendation |
+| Wellness product owner (plan) | Sponsor | Agrees the acceptance criteria, makes the rollout decision |
+| Registered dietitian (plan) | Subject expert | Says what error is acceptable for wellness coaching |
+| Privacy officer and compliance (plan) | Approver | Signs off [privacy and consent](privacy-and-consent.md): consent, minimisation, retention, HIPAA position |
+| Integration team (plan) | Builder | Builds the endpoint in the [integration spec](integration-spec.md) and runs its contract tests |
+| 10 volunteer members | Testers | Use the app for 2 weeks; 5 also weigh their meals |
+| Implementation consultant (me) | Delivery lead | Criteria, test design, privacy and integration documents, the pilot, the recommendation |
 
 ## 1. Agree "accurate enough" before testing
 
@@ -36,7 +41,7 @@ They live in [`evaluation/acceptance.py`](../evaluation/acceptance.py):
 
 ## 2. Design a fair test
 
-- **Use the client's own kind of meals.** Volunteers weigh each plate and take one phone photo
+- **Use the client's own kind of meals.** Volunteer members weigh each plate and take one phone photo
   ([how](../evaluation/README.md)). This is the test that counts.
 - **Use public data only where it is fair.** Nutrition5k gives quick, reproducible results for
   photo-only portions. The FoodCNN weight model was trained on almost all Nutrition5k dishes, so its
@@ -78,7 +83,35 @@ Reviewing the code before benchmarking found two things a client would want to k
 2. The documentation named a different AI provider from the one the code actually used. It was
    corrected. Checking documentation against behaviour is part of any vendor review.
 
-## 7. After rollout
+## 7. Privacy and consent
+
+Before any member data moves, the plan's privacy officer reviews
+[privacy-and-consent.md](privacy-and-consent.md). It contains:
+
+- A data inventory checked against the code. Photos go to Gemini with location and camera metadata
+  removed. The diary stays in the member's browser and expires after 1 to 14 days. There is no server
+  database.
+- 12 requirements: opt-in, versioned consent; withdrawal; nothing from before consent; one minimised
+  record per day; a pseudonymous member reference instead of the member ID; estimates flagged as
+  estimates.
+- What the data must never be used for: underwriting, premiums, claims or eligibility.
+
+## 8. Integration
+
+The plan's developers build against the [integration spec](integration-spec.md) and the JSON Schema
+[meal-summary.schema.json](meal-summary.schema.json). The reference implementation,
+`wellness_export.py`, checks consent, builds the records, validates the batch, and sends it. It retries
+busy or unreachable endpoints with backoff, never retries a rejected batch, and holds undeliverable
+batches as dead letters. Its tests double as contract tests for the plan.
+
+## 9. Pilot and sign-off
+
+The [pilot UAT plan](pilot-uat-plan.md) has 31 cases across privacy, integration and accuracy. Each is
+traced to a requirement and to an automated test, and a test fails if any requirement is left uncovered.
+Three cases are run by hand during the pilot: a live send to the plan's staging endpoint, the accuracy
+benchmark on members' weighed meals, and the retention and AI-terms sign-offs.
+
+## 10. After rollout
 
 Rerun the benchmark and the acceptance check whenever the photo model changes. A new model version
 can move accuracy in either direction.

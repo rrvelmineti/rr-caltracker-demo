@@ -4,19 +4,43 @@
 
 A Streamlit food-photo app that estimates portions, matches foods to USDA data, and tracks calories, macros, vitamins and minerals. Gemini analyses the photos in this version.
 
-Docs: [vendor evaluation playbook](docs/vendor-evaluation-playbook.md) · [problem statement](docs/problem-statement.md) · [user stories](docs/user-stories.md) · [accuracy evaluation](evaluation/README.md)
+Docs: [rollout playbook](docs/vendor-evaluation-playbook.md) · [privacy and consent](docs/privacy-and-consent.md) · [integration spec](docs/integration-spec.md) · [pilot UAT plan](docs/pilot-uat-plan.md) · [problem statement](docs/problem-statement.md) · [user stories](docs/user-stories.md) · [accuracy evaluation](evaluation/README.md)
 
-## The implementation case: is the AI accurate enough to roll out?
+## The implementation case: a health plan's member wellness benefit
 
-**Client question.** A wellness provider wants photo meal logging in its employee app. Is it accurate
-enough to trust?
-**Approach.** Agree the acceptance criteria first: at least 20 meals, median calorie error at most 20%,
-and at least half of meals within 20%. Then benchmark the app's real pipeline on meals with known
-calories, and decide with code (`evaluation/acceptance.py`).
-**What the review found before any benchmark.** The FoodCNN weight model was trained on the public
-Nutrition5k dishes, so testing it there would overstate its accuracy. The acceptance check refuses to
-accept it on that evidence. The full plan is in the
-[vendor evaluation playbook](docs/vendor-evaluation-playbook.md).
+**Client.** A health insurer (hypothetical) wants to offer photo meal logging to its members as an
+optional wellness benefit, with members able to share daily nutrition totals with the plan's coaching
+platform.
+
+**The three questions, and how each is answered:**
+
+1. **Is it accurate enough?** The acceptance criteria are agreed first: at least 20 meals, median
+   calorie error at most 20%, and at least half of meals within 20%. The app's real pipeline is then
+   benchmarked on meals with known calories, and the decision is made in code (`evaluation/acceptance.py`).
+   The review found the FoodCNN weight model was trained on the public Nutrition5k dishes, so testing it
+   there would overstate its accuracy, and the check refuses that evidence.
+2. **Is member data handled properly?** [Privacy and consent requirements](docs/privacy-and-consent.md)
+   for the plan's compliance team. They cover a data inventory checked against the code, 12 requirements,
+   and what the data must never be used for. Sharing is opt-in and versioned, and stops on withdrawal.
+   Only one minimised record per day leaves the device, with no photos, food names or times of day, and
+   the member ID is replaced by an HMAC reference.
+3. **Does it integrate safely?** An [integration spec](docs/integration-spec.md) with a
+   [JSON Schema](docs/meal-summary.schema.json), plus a tested reference implementation,
+   `wellness_export.py`. It validates before sending, makes resends idempotent, retries with backoff,
+   never retries a rejected batch, and holds undeliverable batches as dead letters.
+
+A [pilot UAT plan](docs/pilot-uat-plan.md) has 31 cases, each traced to a requirement and an automated
+test. The [rollout playbook](docs/vendor-evaluation-playbook.md) ties it all together.
+
+```bash
+# Build the daily summary batch for the sample member (synthetic diary and consent)
+WELLNESS_SHARED_SECRET=$(python -c "print('x'*40)") \
+  python wellness_export.py examples/wellness/diary_sample.json --member-id M-1001 \
+  --consent examples/wellness/consent_sample.json --out batch.json --today 2026-11-05
+```
+
+On the sample, it shares 3 days. It leaves out the meal from before consent and the demo meal, and
+marks the day with an unmatched food as incomplete, with calories left null rather than guessed.
 
 ## What you can do
 
